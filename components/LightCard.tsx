@@ -34,6 +34,7 @@ interface LightCardProps {
 
 export default function LightCard({ light, onUpdate }: LightCardProps) {
   const [localBrightness, setLocalBrightness] = useState(light.brightness);
+  const [localPower, setLocalPower] = useState(light.power);
   const [isUpdatingBrightness, setIsUpdatingBrightness] = useState(false);
   const [isTogglingPower, setIsTogglingPower] = useState(false);
   const brightnessTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -43,11 +44,19 @@ export default function LightCard({ light, onUpdate }: LightCardProps) {
     setLocalBrightness(light.brightness);
   }, [light.brightness]);
 
+  // Update local power when light prop changes
+  useEffect(() => {
+    setLocalPower(light.power);
+  }, [light.power]);
+
   const handlePowerToggle = async (checked: boolean) => {
     const nextPower = checked ? "on" : "off";
     const selector = `id:${light.id}`;
     
+    // Optimistically update local state immediately
+    setLocalPower(nextPower);
     setIsTogglingPower(true);
+    
     try {
       await fetch(`/api/lifx/lights/${encodeURIComponent(selector)}/state`, {
         method: "POST",
@@ -60,6 +69,8 @@ export default function LightCard({ light, onUpdate }: LightCardProps) {
       setTimeout(onUpdate, 500);
     } catch (error) {
       console.error("Failed to toggle power:", error);
+      // Revert on error
+      setLocalPower(light.power);
     } finally {
       setIsTogglingPower(false);
     }
@@ -139,11 +150,29 @@ export default function LightCard({ light, onUpdate }: LightCardProps) {
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center justify-between text-white">
           <span className="text-lg">{light.label}</span>
-          <Switch
-            checked={light.power === "on"}
-            onCheckedChange={handlePowerToggle}
-            disabled={!light.connected || isTogglingPower}
-          />
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className={`w-4 h-4 transition-colors ${localPower === "on" ? "text-green-400" : "text-slate-500"}`}
+              >
+                <path d="M12 2v10" />
+                <path d="M18.4 6.6a9 9 0 1 1-12.77.04" />
+              </svg>
+              <span className="text-xs text-slate-400">Power</span>
+            </div>
+            <Switch
+              checked={localPower === "on"}
+              onCheckedChange={handlePowerToggle}
+              disabled={!light.connected || isTogglingPower}
+            />
+          </div>
         </CardTitle>
         {(light.group || light.location) && (
           <p className="text-xs text-slate-400">
