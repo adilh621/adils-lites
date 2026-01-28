@@ -1,63 +1,193 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import useSWR from "swr";
+import { Button } from "@/components/ui/button";
+import LightCard from "@/components/LightCard";
+import GlobalControls from "@/components/GlobalControls";
+import EffectsAndScenes from "@/components/EffectsAndScenes";
+
+const fetcher = (url: string) => fetch(url).then((r) => r.json());
+
+export default function Dashboard() {
+  const router = useRouter();
+  const [userEmail, setUserEmail] = useState("");
+  const [globalHex, setGlobalHex] = useState("#a01889");
+  
+  // Fetch lights with auto-refresh every 5 seconds
+  const { data: lights, error, mutate } = useSWR("/api/lifx/lights", fetcher, {
+    refreshInterval: 5000,
+    revalidateOnFocus: true,
+  });
+
+  useEffect(() => {
+    // Get user email from cookie
+    const cookies = document.cookie.split(";");
+    const emailCookie = cookies.find((c) => c.trim().startsWith("user_email="));
+    if (emailCookie) {
+      setUserEmail(emailCookie.split("=")[1]);
+    }
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      router.push("/login");
+      router.refresh();
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
+
+  const handleRefresh = () => {
+    mutate();
+  };
+
+  // Calculate stats
+  const lightsArray = Array.isArray(lights) ? lights : [];
+  const onlineCount = lightsArray.filter((l: any) => l.connected).length;
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="min-h-screen bg-slate-950">
+      {/* Header */}
+      <header className="border-b border-slate-700 bg-slate-900/50 backdrop-blur-sm">
+        <div className="container mx-auto flex items-center justify-between px-6 py-4">
+          <motion.h1
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="text-2xl font-bold text-white"
+          >
+            Adil&apos;s Lites
+          </motion.h1>
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-4"
+          >
+            {userEmail && (
+              <span className="text-sm text-slate-400">{userEmail}</span>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLogout}
+              className="border-slate-600 bg-slate-800 text-slate-200 hover:bg-slate-700"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+              Logout
+            </Button>
+          </motion.div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+      </header>
+
+      {/* Main Content - Centered */}
+      <main className="min-h-[calc(100vh-73px)] flex items-center justify-center px-4 py-6">
+        <div className="w-full max-w-5xl space-y-6">
+          {/* Header with Refresh Button */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="flex items-center justify-between"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            <h2 className="text-xl font-semibold text-white">
+              Your Lights
+            </h2>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={!lights}
+              className="border-slate-600 bg-slate-800 text-slate-200 hover:bg-slate-700"
+            >
+              Refresh
+            </Button>
+          </motion.div>
+
+          {/* Loading State */}
+          {!lights && !error && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-center py-12"
+            >
+              <p className="text-slate-400">Loading lights...</p>
+            </motion.div>
+          )}
+
+          {/* Error State */}
+          {error && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-center py-12"
+            >
+              <p className="text-red-400">
+                Failed to load lights. Please check your LIFX configuration.
+              </p>
+            </motion.div>
+          )}
+
+          {/* Global Controls */}
+          {lightsArray.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <GlobalControls
+                lightsCount={lightsArray.length}
+                onlineCount={onlineCount}
+                onUpdate={handleRefresh}
+                globalColor={globalHex}
+                setGlobalColor={setGlobalHex}
+              />
+            </motion.div>
+          )}
+
+          {/* Effects & Scenes */}
+          {lightsArray.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+            >
+              <EffectsAndScenes 
+                globalColor={globalHex} 
+                onUpdate={handleRefresh}
+              />
+            </motion.div>
+          )}
+
+          {/* Individual Light Cards */}
+          {lightsArray.length > 0 && (
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+              {lightsArray.map((light: any, index: number) => (
+                <motion.div
+                  key={light.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 + index * 0.1 }}
+                >
+                  <LightCard light={light} onUpdate={handleRefresh} />
+                </motion.div>
+              ))}
+            </div>
+          )}
+
+          {/* Empty State */}
+          {lightsArray.length === 0 && !error && lights && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-center py-12"
+            >
+              <p className="text-slate-400">
+                No lights found. Make sure your LIFX lights are connected.
+              </p>
+            </motion.div>
+          )}
         </div>
       </main>
     </div>
